@@ -8,5 +8,6 @@ testenv.json
 event*.json
 *.env
 *.toml
+!Cargo.toml
 swagger*.yaml
-data/
+trash/

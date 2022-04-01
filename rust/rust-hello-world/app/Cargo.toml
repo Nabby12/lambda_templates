@@ -1,0 +1,16 @@
+[package]
+name = "rust-hello-world"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+strip = true
+
+[[bin]]
+name = "bootstrap"
+path = "src/main.rs"
+
+[dependencies]
+lambda_runtime = "*"
+tokio = "*"
+serde_json = "*"

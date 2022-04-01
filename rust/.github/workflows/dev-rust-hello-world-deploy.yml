@@ -10,8 +10,8 @@ on:
         default: false
   pull_request:
     paths:
-      - '.github/workflows/dev-go-hello-world-deploy.yml'
-      - 'go-hello-world/**'
+      - '.github/workflows/dev-rust-hello-world-deploy.yml'
+      - 'rust/**'
       - '!**.md'
     branches: [develop]
     types: [closed]
@@ -35,7 +35,7 @@ jobs:
         with:
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
           role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN_FOR_SAM }}
-          role-session-name: github-actions-session-for-go-hello-world
+          role-session-name: github-actions-session-for-rust-hello-world
           role-duration-seconds: 900
 
       - name: Run npm install for actions
@@ -78,10 +78,14 @@ jobs:
         working-directory: ./.github/actions/get-ssm-parameters
         run: rm -rf node_modules
 
-      - name: Setup Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: '1.18'
+      - name: Setup Rust
+        env:
+          ARCH: aarch64-unknown-linux-musl
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          rustup target add ${ARCH}
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Setup Python
         uses: actions/setup-python@v2
@@ -90,11 +94,12 @@ jobs:
         uses: aws-actions/setup-sam@v1
 
       - name: Build by SAM
-        working-directory: ./go-hello-world
+        working-directory: ./rust-hello-world
         run: sam build
 
       - name: Deploy by SAM
-        working-directory: ./go-hello-world
+        working-directory: ./rust-hello-world
+
         env:
           ENV: ${{ secrets.ENV_DEV }}
           AWS_S3_DEPLOY_LAMBDA_BUCKET: ${{ steps.set-secrets.outputs.AWS_S3_DEPLOY_LAMBDA_BUCKET }}

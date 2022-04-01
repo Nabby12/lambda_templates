@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  rust-hello-world-function
+Globals:
+  Function:
+    Timeout: 5
+
+Parameters:
+  PJPrefix:
+    Type: String
+  SsmPath:
+    Type: String
+  Env:
+    Type: String
+
+Resources:
+  # ------------------------------------------------------------#
+  # Lambda
+  # ------------------------------------------------------------#
+  RustHelloWorld:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${Env}-${PJPrefix}'
+      CodeUri: ./app
+      Handler: bootstrap.is.real.handler
+      Runtime: provided.al2
+      Architectures:
+        - arm64
+      Role: !GetAtt RustHelloWorldLambdaRole.Arn
+      Environment:
+        Variables:
+          SSM_PATH:
+            Ref: SsmPath
+          ENV:
+            Ref: Env
+    Metadata:
+      BuildMethod: makefile
+    DependsOn:
+      - RustHelloWorldLambdaRole
+
+  # ------------------------------------------------------------#
+  # IAMRole
+  # ------------------------------------------------------------#
+  RustHelloWorldLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Env}-${PJPrefix}-role"
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AllowSecretsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "sts:AssumeRole"
+                  - "ssm:GetParameter"
+                  - "ssm:GetParameters"
+                  - "ssm:GetParametersByPath"
+                  - "secretsmanager:GetSecretValue"
+                  - "kms:Decrypt"
+                Resource: "*"
+
+Outputs:
+  RustHelloWorld:
+    Description: "First Lambda Function ARN"
+    Value: !GetAtt RustHelloWorld.Arn
+
+  RustHelloWorldLambdaRole:
+    Value: !GetAtt RustHelloWorldLambdaRole.Arn
+    Export:
+      Name: !Sub "${Env}-${PJPrefix}-role-arn"
