@@ -23,7 +23,7 @@ Resources:
     Properties:
       FunctionName: !Sub '${Env}-${PJPrefix}'
       CodeUri: ./app
-      Handler: bootstrap.is.real.handler
+      Handler: bootstrap
       Runtime: provided.al2
       Architectures:
         - arm64
