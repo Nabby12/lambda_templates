@@ -9,4 +9,4 @@ event*.json
 *.env
 *.toml
 swagger*.yaml
-data/
+trash/
