@@ -34,8 +34,8 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN_FOR_RECOVERY_LAMBDA }}
-          role-session-name: github-actions-session-for-send-alert-mail-lambda
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN_FOR_SAM }}
+          role-session-name: github-actions-session-for-go-hello-world
           role-duration-seconds: 900
 
       - name: Run npm install for actions
@@ -90,11 +90,11 @@ jobs:
         uses: aws-actions/setup-sam@v1
 
       - name: Build by SAM
-        working-directory: ./send_alert_mail_lambda
+        working-directory: ./go-hello-world
         run: sam build
 
       - name: Deploy by SAM
-        working-directory: ./send_alert_mail_lambda
+        working-directory: ./go-hello-world
         env:
           ENV: ${{ secrets.ENV_DEV }}
           AWS_S3_DEPLOY_LAMBDA_BUCKET: ${{ steps.set-secrets.outputs.AWS_S3_DEPLOY_LAMBDA_BUCKET }}
