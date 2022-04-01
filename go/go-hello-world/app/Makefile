@@ -6,5 +6,6 @@ build:
 
 copy:
 	cp ./bootstrap $(ARTIFACTS_DIR)
+	strip $(ARTIFACTS_DIR)/bootstrap
 
 build-GoHelloWorld: deps build copy
