@@ -34,7 +34,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN_FOR_RECOVERY_LAMBDA }}
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN_FOR_SAM }}
           role-session-name: github-actions-session-for-send-alert-mail-lambda
           role-duration-seconds: 900
 
