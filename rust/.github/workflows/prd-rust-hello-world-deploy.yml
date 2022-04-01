@@ -1,4 +1,4 @@
-name: dev Auto Deploy to AWS Lambda and some resources
+name: prd Auto Deploy to AWS Lambda and some resources
 
 on:
   workflow_dispatch:
@@ -9,12 +9,12 @@ on:
         description: forced deployment flag
         default: false
   pull_request:
-    # paths:
-    #   - '.github/workflows/dev-rust-hello-world-deploy.yml'
-    #   - 'rust/**'
-    #   - '!**.md'
-    branches: [develop]
-    # types: [closed]
+    paths:
+      - '.github/workflows/prd-rust-hello-world-deploy.yml'
+      - 'rust/**'
+      - '!**.md'
+    branches: [main]
+    types: [closed]
 
 permissions:
   id-token: write
@@ -22,10 +22,10 @@ permissions:
 
 jobs:
   build-and-deploy:
-    name: Build and Deploy for dev
+    name: Build and Deploy for prd
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # if: ${{ github.event.pull_request.merged || github.event.inputs.force_deploy }}
+    if: ${{ github.event.pull_request.merged || github.event.inputs.force_deploy }}
 
     steps:
       - uses: actions/checkout@v3
@@ -48,7 +48,7 @@ jobs:
         with:
           default_region: ${{ secrets.AWS_DEFAULT_REGION }}
           ssm_path_name: ${{ secrets.AWS_SSM_PATH_NAME }}
-          env: ${{ secrets.ENV_DEV }}
+          env: ${{ secrets.ENV }}
           cd_parameters: |-
             AWS_ACCOUNT_ID
             AWS_S3_DEPLOY_LAMBDA_BUCKET
@@ -94,15 +94,14 @@ jobs:
         uses: aws-actions/setup-sam@v1
 
       - name: Build by SAM
-        # working-directory: ./rust-hello-world
-        working-directory: ./rust/rust-hello-world
+        working-directory: ./rust-hello-world
         run: sam build
 
       - name: Deploy by SAM
-        # working-directory: ./rust-hello-world
-        working-directory: ./rust/rust-hello-world
+        working-directory: ./rust-hello-world
+
         env:
-          ENV: ${{ secrets.ENV_DEV }}
+          ENV: ${{ secrets.ENV }}
           AWS_S3_DEPLOY_LAMBDA_BUCKET: ${{ steps.set-secrets.outputs.AWS_S3_DEPLOY_LAMBDA_BUCKET }}
           SSM_PARAMETER: ${{ steps.set-secrets.outputs.SSM_PARAMETER }}
         run: |
