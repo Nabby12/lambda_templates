@@ -35,7 +35,7 @@ jobs:
         with:
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
           role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN_FOR_SAM }}
-          role-session-name: github-actions-session-for-send-alert-mail-lambda
+          role-session-name: github-actions-session-for-rust-hello-world
           role-duration-seconds: 900
 
       - name: Run npm install for actions
