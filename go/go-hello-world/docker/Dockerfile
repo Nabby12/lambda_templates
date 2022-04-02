@@ -9,7 +9,7 @@ RUN apk update && \
     apk add --no-cache git alpine-sdk tzdata && \
     go mod download && \
     go mod tidy && \
-    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bootstrap .
 
 CMD ["/bin/sh"]
 
@@ -19,6 +19,6 @@ ADD https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest
 
 RUN chmod 755 /usr/bin/aws-lambda-rie
 
-COPY --from=builder /go/src/app/main .
+COPY --from=builder /go/src/app/bootstrap .
 
 ENTRYPOINT [ "/usr/bin/aws-lambda-rie" ]
