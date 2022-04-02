@@ -16,7 +16,7 @@ func handler(ctx context.Context, name MyEvent) (string, error) {
 	now := time.Now()
 	fmt.Printf("-- Start job %s --\n", now.Format("2006-01-02 15:04:05"))
 
-	fmt.Printf("Hello %s!", name.Name)
+	fmt.Printf("Hello %s!\n", name.Name)
 
 	fmt.Println("Time: ", time.Since(now).Milliseconds(), "ms")
 	fmt.Printf("-- Finish job %s --\n", now.Format("2006-01-02 15:04:05"))
