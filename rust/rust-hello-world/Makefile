@@ -1,10 +1,11 @@
-IMAGE_NAME = rust-build-image
-CONTAINER_NAME = rust-build-container
+IMAGE_NAME = build-image
+CONTAINER_NAME = build-container
 
 build:
 	docker build --target runner -t ${IMAGE_NAME} -f docker/Dockerfile .
 	docker run --name ${CONTAINER_NAME} -d \
 		-p 9000:8080 \
+		--env-file=./env/.local.env \
 		${IMAGE_NAME} ./bootstrap
 
 run:

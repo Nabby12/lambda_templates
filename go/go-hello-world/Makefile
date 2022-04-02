@@ -1,11 +1,12 @@
-IMAGE_NAME = go-build-image
-CONTAINER_NAME = go-build-container
+IMAGE_NAME = build-image
+CONTAINER_NAME = build-container
 
 build:
 	docker build --target runner -t ${IMAGE_NAME} -f docker/Dockerfile .
 	docker run --name ${CONTAINER_NAME} -d \
 		-p 9000:8080 \
-		${IMAGE_NAME} ./main
+		--env-file=./env/.local.env \
+		${IMAGE_NAME} ./bootstrap
 
 run:
 	curl -d '{}' http://localhost:9000/2015-03-31/functions/function/invocations
