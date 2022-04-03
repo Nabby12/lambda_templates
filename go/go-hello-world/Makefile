@@ -9,7 +9,7 @@ build:
 		${IMAGE_NAME} ./bootstrap
 
 run:
-	curl -d '{}' http://localhost:9000/2015-03-31/functions/function/invocations
+	curl -d @event/event.json http://localhost:9000/2015-03-31/functions/function/invocations
 
 log:
 	docker logs -t ${CONTAINER_NAME}

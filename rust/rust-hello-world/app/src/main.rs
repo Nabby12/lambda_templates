@@ -5,13 +5,13 @@ async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     println!("-- Start function --");
 
     let (event, _context) = event.into_parts();
-    let first_name = event["firstName"].as_str().unwrap_or("world");
+    let event_value = event["key"].as_str().unwrap_or("key is not existed");
 
-    println!("{}", format!("Hello {}!", first_name));
+    println!("{}", format!("{}!", event_value));
 
     println!("-- Exit function --");
 
-    Ok(json!({ "message": format!("Hello {}!", first_name) }))
+    Ok(json!({ "message": format!("return_message: {}!", event_value) }))
 }
 
 #[tokio::main]
