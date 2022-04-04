@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  julia-hello-world-function
+Globals:
+  Function:
+    Timeout: 5
+
+Parameters:
+  PJPrefix:
+    Type: String
+  SsmPath:
+    Type: String
+  Env:
+    Type: String
+
+Resources:
+  # ------------------------------------------------------------#
+  # Lambda
+  # ------------------------------------------------------------#
+  JuliaHelloWorld:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${Env}-${PJPrefix}'
+      PackageType: Image
+      ImageUri: julia-app
+      Architectures:
+        - arm64
+      Role: !GetAtt JuliaHelloWorldLambdaRole.Arn
+      Environment:
+        Variables:
+          SSM_PATH:
+            Ref: SsmPath
+          ENV:
+            Ref: Env
+    Metadata:
+      Dockerfile: ./docker/Dockerfile
+      DockerContext: ./
+      DockerTag: julia-app
+      BuildMethod: makefile
+    DependsOn:
+      - JuliaHelloWorldLambdaRole
+
+  # ------------------------------------------------------------#
+  # IAMRole
+  # ------------------------------------------------------------#
+  JuliaHelloWorldLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Env}-${PJPrefix}-role"
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AllowSecretsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "sts:AssumeRole"
+                  - "ssm:GetParameter"
+                  - "ssm:GetParameters"
+                  - "ssm:GetParametersByPath"
+                  - "secretsmanager:GetSecretValue"
+                  - "kms:Decrypt"
+                Resource: "*"
+
+Outputs:
+  JuliaHelloWorld:
+    Description: "First Lambda Function ARN"
+    Value: !GetAtt JuliaHelloWorld.Arn
+
+  JuliaHelloWorldLambdaRole:
+    Value: !GetAtt JuliaHelloWorldLambdaRole.Arn
+    Export:
+      Name: !Sub "${Env}-${PJPrefix}-role-arn"
