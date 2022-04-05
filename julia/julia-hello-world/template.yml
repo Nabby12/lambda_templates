@@ -37,7 +37,6 @@ Resources:
       Dockerfile: ./docker/Dockerfile
       DockerContext: ./
       DockerTag: julia-app
-      BuildMethod: makefile
     DependsOn:
       - JuliaHelloWorldLambdaRole
 
