@@ -15,7 +15,7 @@ on:
       - 'cfn_templates/**'
       - '!**.md'
     branches: [develop]
-    # types: [closed]
+    types: [closed]
 
 permissions:
   id-token: write
@@ -26,7 +26,7 @@ jobs:
     name: Build and Push for dev
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # if: ${{ github.event.pull_request.merged || github.event.inputs.force_deploy }}
+    if: ${{ github.event.pull_request.merged || github.event.inputs.force_deploy }}
     env:
       ENV: ${{ secrets.ENV_DEV }}
 
@@ -91,8 +91,7 @@ jobs:
           echo "::set-output name=TAG_NAME::$TAG_NAME"
 
       - name: Build, Tag and Push Image to Amazon ECR
-        working-directory: ./fargate/go/go-hello-world-container
-        # working-directory: ./go-hello-world-container
+        working-directory: ./go-hello-world-container
         id: push-image
         env:
           ECR_REPOSITORY: ${{ steps.set-secrets.outputs.PJ_PREFIX }}
