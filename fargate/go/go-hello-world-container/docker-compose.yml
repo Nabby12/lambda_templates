@@ -1,0 +1,46 @@
+version: "3.7"
+
+x-db-build: &build
+  build:
+    context: .
+    dockerfile: ./docker/database/Dockerfile
+x-db-environment: &environment
+  MYSQL_DATABASE: toletta
+  MYSQL_USER: user
+  MYSQL_PASSWORD: password
+  MYSQL_ROOT_PASSWORD: password
+
+services:
+  app:
+    build:
+      context: .
+      target: builder
+      dockerfile: ./docker/app/Dockerfile
+    container_name: go-hello-world-container
+    image: go-hello-world:local
+    env_file:
+      - ./env/app.env
+    volumes:
+      - type: bind
+        source: ./app
+        target: /go/src/app
+      - type: bind
+        source: ~/.aws
+        target: /root/.aws
+    depends_on:
+      - sandbox-db-mysql
+    tty: false
+
+  sandbox-db-mysql:
+    <<: *build
+    container_name: sandbox-db-mysql
+    image: mysql/db:0.1.0
+    ports:
+      - 44306:3306
+    environment: *environment
+    restart: always
+    volumes:
+      - ./docker/database/sandbox/init:/docker-entrypoint-initdb.d
+      - ./docker/database/sandbox/data:/var/lib/mysql
+    healthcheck:
+      test: mysqlshow -u $$MYSQL_USER -p$$MYSQL_PASSWORD
