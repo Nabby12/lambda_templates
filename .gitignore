@@ -10,4 +10,5 @@ event*.json
 *.toml
 !Cargo.toml
 swagger*.yaml
+data/
 trash/
