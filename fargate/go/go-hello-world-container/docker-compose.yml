@@ -1,0 +1,20 @@
+version: "3.7"
+
+services:
+  app:
+    build:
+      context: .
+      target: builder
+      dockerfile: ./docker/app/Dockerfile
+    container_name: go-hello-world-container
+    image: go-hello-world:local
+    env_file:
+      - ./env/app.env
+    volumes:
+      - type: bind
+        source: ./app
+        target: /go/src/app
+      - type: bind
+        source: ~/.aws
+        target: /root/.aws
+    tty: false
