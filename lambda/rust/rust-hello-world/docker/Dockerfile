@@ -7,7 +7,9 @@ RUN rustup target add ${ARCH}
 
 COPY ./app/ /app/
 
-RUN cargo build --release --target ${ARCH}
+RUN cargo build --release --target ${ARCH} && \
+    mkdir bin && \
+    cp ./target/${ARCH}/release/bootstrap ./bin/bootstrap
 
 CMD ["/bin/sh"]
 
@@ -17,6 +19,6 @@ ADD https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest
 
 RUN chmod 755 /usr/bin/aws-lambda-rie
 
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/bootstrap .
+COPY --from=builder /app/bin/bootstrap .
 
 ENTRYPOINT [ "/usr/bin/aws-lambda-rie" ]

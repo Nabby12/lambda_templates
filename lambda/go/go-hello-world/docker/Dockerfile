@@ -9,7 +9,7 @@ RUN apk update && \
     apk add --no-cache git alpine-sdk tzdata && \
     go mod download && \
     go mod tidy && \
-    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bootstrap .
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o bootstrap .
 
 CMD ["/bin/sh"]
 
