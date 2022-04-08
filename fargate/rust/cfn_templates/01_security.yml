@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description:
+  SecurityGroup, ECSTaskRole, ECSTaskExecutionRole Create
+
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "Project Name Prefix"
+        Parameters:
+          - PJPrefix
+          - Env
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------#
+Parameters:
+  PJPrefix:
+    Type: String
+    Default: PJPrefix
+
+  Env:
+    Description: Type of this environment.
+    Type: String
+    Default: dev
+    AllowedValues:
+      - prd
+      - dev
+
+Resources:
+  # ------------------------------------------------------------#
+  # SecurityGroup
+  # ------------------------------------------------------------#
+  ContainerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${Env}-${PJPrefix}-container-sg"
+      GroupDescription: Security group for identification.
+      VpcId: {'Fn::ImportValue': !Sub "${Env}-vpc-id"}
+      Tags:
+        - Key: Name
+          Value: !Sub "${Env}-${PJPrefix}-container-sg"
+
+  # ------------------------------------------------------------#
+  # IAMRole
+  # ------------------------------------------------------------#
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Env}-${PJPrefix}-ecs-task-role"
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+                - events.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceEventsRole
+      Policies:
+        - PolicyName: AllowSecretsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "sts:AssumeRole"
+                  - "ssm:GetParameter"
+                  - "ssm:GetParameters"
+                  - "ssm:GetParametersByPath"
+                  - "secretsmanager:GetSecretValue"
+                  - "kms:Decrypt"
+                Resource: "*"
+        - PolicyName: AllowSQSOperations
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "sqs:ReceiveMessage"
+                  - "sqs:SendMessage"
+                  - "sqs:DeleteMessage"
+                  - "sqs:GetQueueAttributes"
+                Resource: "*"
+
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Env}-${PJPrefix}-ecs-task-execution-role"
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: AllowAllActions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "sts:AssumeRole"
+                  - "ssm:GetParameters"
+                  - "secretsmanager:GetSecretValue"
+                  - "kms:Decrypt"
+                Resource: "*"
+
+# ------------------------------------------------------------#
+# Output Parameters
+# ------------------------------------------------------------#
+Outputs:
+  ContainerSG:
+    Value: !Ref ContainerSG
+    Export:
+      Name: !Sub "${Env}-${PJPrefix}-container-sg"
+
+  ECSTaskExecutionRole:
+    Value: !GetAtt ECSTaskExecutionRole.Arn
+    Export:
+      Name: !Sub "${Env}-${PJPrefix}-ecs-task-execution-role-arn"
+
+  ECSTaskRole:
+    Value: !GetAtt ECSTaskRole.Arn
+    Export:
+      Name: !Sub "${Env}-${PJPrefix}-ecs-task-role-arn"
