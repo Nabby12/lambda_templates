@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECR
+
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "Project Name Prefix"
+        Parameters:
+          - PJPrefix
+Parameters:
+  PJPrefix:
+    Type: String
+    Default: PJPrefix
+
+Resources:
+  ECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      ImageTagMutability: IMMUTABLE
+      RepositoryName: !Sub ${PJPrefix}
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 10,
+                "description": "Delete more than 5 images with the tag dev-*",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": [
+                    "dev-"
+                  ],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 5
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 20,
+                "description": "Delete more than 5 images with the tag prd-*",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": [
+                    "prd-"
+                  ],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 5
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+# ------------------------------------------------------------#
+# Output Parameters
+# ------------------------------------------------------------#
+Outputs:
+  ECRRepositoryUri:
+    Value:
+      !GetAtt ECR.RepositoryUri
+    Export:
+      Name: !Sub ${PJPrefix}-repository-uri

@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "Project Name Prefix"
+        Parameters:
+          - PJPrefix
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------#
+Parameters:
+  PJPrefix:
+    Type: String
+    Default: PJPrefix
+
+Resources:
+  # ------------------------------------------------------------#
+  # Cluster
+  # ------------------------------------------------------------#
+  # ClusterはDev, Prd共通
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${PJPrefix}-cluster"
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+# ------------------------------------------------------------#
+# Output Parameters
+# ------------------------------------------------------------#
+Outputs:
+  ClusterName:
+    Value:
+      !Ref Cluster
+    Export:
+      Name: !Sub ${PJPrefix}-cluster-name
+  ClusterNameArn:
+    Value: !GetAtt Cluster.Arn
+    Export:
+      Name: !Sub "${PJPrefix}-cluster-arn"
