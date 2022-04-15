@@ -45,6 +45,14 @@ Parameters:
 
 Resources:
   # ------------------------------------------------------------#
+  # CloudWatch LogGroup
+  # ------------------------------------------------------------#
+  CloudWatchLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "ecs/${Env}-${PJPrefix}-ecs-task"
+
+  # ------------------------------------------------------------#
   # Task Definition
   # ------------------------------------------------------------#
   TaskDefinition:
