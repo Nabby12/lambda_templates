@@ -47,7 +47,7 @@ Resources:
   # ------------------------------------------------------------#
   # CloudWatch LogGroup
   # ------------------------------------------------------------#
-  CloudWatchLogs:
+  LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub "ecs/${Env}-${PJPrefix}-ecs-task"
@@ -82,7 +82,7 @@ Resources:
             LogDriver: awslogs
             Options:
               awslogs-region: !Ref 'AWS::Region'
-              awslogs-group: !Sub "ecs/${Env}-${PJPrefix}-ecs-task"
+              awslogs-group: !Ref LogGroup
               awslogs-stream-prefix: ecs
           Essential: true
 
