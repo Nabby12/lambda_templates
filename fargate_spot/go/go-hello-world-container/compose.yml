@@ -1,0 +1,32 @@
+services:
+  app:
+    container_name: go-hello-world-container
+    build:
+      context: .
+      target: builder
+      dockerfile: ./docker/app/Dockerfile
+    image: go-hello-world:local
+    environment:
+      - "TZ=Japan"
+    env_file:
+      - ./env/app.env
+    volumes:
+      - type: bind
+        source: ./app
+        target: /go/src/app
+      - type: bind
+        source: ~/.aws
+        target: /root/.aws
+    depends_on:
+      - elasticmq
+    restart: always
+
+  elasticmq:
+    image: softwaremill/elasticmq
+    container_name: elasticmq
+    ports:
+      - 9324:9324
+    volumes:
+      - type: bind
+        source: ./local-stack/sqs/config/elasticmq.conf
+        target: /opt/elasticmq.conf

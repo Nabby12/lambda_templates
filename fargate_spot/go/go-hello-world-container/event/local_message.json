@@ -1,0 +1,4 @@
+{
+    "QueueUrl": "http://elasticmq:9324/queue/local",
+    "MessageBody": "{\"param_a\": \"value_a\", \"param_b\": \"value_b\"}"
+}

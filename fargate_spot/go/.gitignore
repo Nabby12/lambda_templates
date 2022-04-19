@@ -1,0 +1,13 @@
+Thumbs.db
+.vs
+.vscode
+.aws-sam/
+node_modules/
+env*.json
+event*.json
+*.env
+*.toml
+!Cargo.toml
+swagger*.yaml
+data/
+target/

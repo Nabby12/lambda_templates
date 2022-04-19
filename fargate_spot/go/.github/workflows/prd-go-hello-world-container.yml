@@ -1,0 +1,152 @@
+name: prd Auto Build and Push to ECR
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        required: true
+        type: boolean
+        description: forced deployment flag
+        default: false
+  pull_request:
+    paths:
+      - '.github/workflows/prd-go-hello-world-container.yml'
+      - 'go-hello-world-container/**'
+      - 'cfn_templates/**'
+      - '!**.md'
+    branches: [main]
+    types: [closed]
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  build-and-push:
+    name: Build and Push for prd
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ github.event.pull_request.merged || github.event.inputs.force_deploy }}
+    env:
+      ENV: ${{ secrets.ENV }}
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
+          role-session-name: github-actions-session-for-go-hello-world-container
+          role-duration-seconds: 900
+
+      - name: Run npm install for actions
+        working-directory: ./.github/actions/get-ssm-parameters
+        run: npm install
+
+      - name: Get SSM Parameters
+        id: ssm-parameters
+        uses: ./.github/actions/get-ssm-parameters
+        with:
+          default_region: ${{ secrets.AWS_DEFAULT_REGION }}
+          ssm_path_name: ${{ secrets.AWS_SSM_PATH_NAME }}
+          env: ${{ secrets.ENV }}
+          cd_parameters: |-
+            SLACK_WEBHOOK_GH_NOTIFY
+          parameters: |-
+            PJ_PREFIX
+
+      - name: Set SSM Parameters
+        id: set-secrets
+        env:
+          SSM_PARAMETERS: ${{ steps.ssm-parameters.outputs.ssm_parameters }}
+        run: |
+          PARAMETERS_ARRAY=( \
+            SLACK_WEBHOOK_GH_NOTIFY \
+            PJ_PREFIX \
+          )
+          for key in "${PARAMETERS_ARRAY[@]}"; \
+          do \
+              VAR_VALUE="$(jq --arg var_name $key -r '.[$var_name]' <(echo "${SSM_PARAMETERS}"))"; \
+              SET_OUTPUT_STRING="::set-output name=${key}::${VAR_VALUE}"; \
+              echo "${SET_OUTPUT_STRING}"; \
+          done
+
+      - name: Delete node modules for actions
+        working-directory: ./.github/actions/get-ssm-parameters
+        run: rm -rf node_modules
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Exec git tag command
+        id: set-tag
+        run: |
+          echo "$(TZ=Asia/Tokyo date +%Y%m%d-%H%M%S)" > TAG_NAME
+          TAG_NAME=$ENV-$(cat TAG_NAME)
+          git tag $TAG_NAME
+          git push origin $TAG_NAME
+          echo "::set-output name=TAG_NAME::$TAG_NAME"
+
+      - name: Build, Tag and Push Image to Amazon ECR
+        working-directory: ./go-hello-world-container
+        id: push-image
+        env:
+          ECR_REPOSITORY: ${{ steps.set-secrets.outputs.PJ_PREFIX }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          TAG_NAME: ${{ steps.set-tag.outputs.TAG_NAME }}
+        run: |
+          IMAGE_NAME=$ECR_REPOSITORY:$TAG_NAME
+          docker build --target runner -t $IMAGE_NAME -f ./docker/app/Dockerfile .
+          docker tag $IMAGE_NAME $ECR_REGISTRY/$IMAGE_NAME
+          docker push $ECR_REGISTRY/$IMAGE_NAME
+          echo "::set-output name=IMAGE_NAME::$IMAGE_NAME"
+
+      - name: Update Task Definition
+        working-directory: ./cfn_templates
+        env:
+          PJ_PREFIX: ${{ steps.set-secrets.outputs.PJ_PREFIX }}
+          SSM_PATH: ${{ secrets.AWS_SSM_PATH_NAME }}
+          VERSION: ${{ steps.set-tag.outputs.TAG_NAME }}
+        run: |
+          aws cloudformation deploy \
+            --stack-name ${ENV}-${PJ_PREFIX}-ecs-task-stack \
+            --template-file 04_ecs_task.yml \
+            --capabilities CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              PJPrefix=${PJ_PREFIX} \
+              SsmPath=${SSM_PATH} \
+              Env=${ENV} \
+              Version=${VERSION}
+
+      - name: Update ECS Service
+        working-directory: ./cfn_templates
+        env:
+          PJ_PREFIX: ${{ steps.set-secrets.outputs.PJ_PREFIX }}
+          SUBNET1: ${{ steps.set-secrets.outputs.SUBNET1 }}
+          SUBNET2: ${{ steps.set-secrets.outputs.SUBNET2 }}
+          SUBNET3: ${{ steps.set-secrets.outputs.SUBNET3 }}
+        run: |
+          aws cloudformation delete-stack \
+            --stack-name ${PJ_PREFIX}-ecs-service-stack
+          aws cloudformation deploy \
+            --stack-name ${PJ_PREFIX}-ecs-service-stack \
+            --template-file 05_ecs_service.yml \
+            --capabilities CAPABILITY_AUTO_EXPAND \
+            --parameter-overrides \
+              PJPrefix=${PJ_PREFIX} \
+              Env=${ENV} \
+              Subnet1=${SUBNET1} \
+              Subnet2=${SUBNET1} \
+              Subnet3=${SUBNET3}
+
+      - name: Notify result to slack
+        uses: homoluctus/slatify@master
+        if: always()
+        with:
+          type: ${{ job.status }}
+          job_name: '*Push Image to Amazon ECR*'
+        env:
+          SLACK_WEBHOOK: ${{ steps.set-secrets.outputs.SLACK_WEBHOOK_GH_NOTIFY }}
