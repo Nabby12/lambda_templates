@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Task Definition
+Description: Create Task Definition
 
 Metadata:
   "AWS::CloudFormation::Interface":
