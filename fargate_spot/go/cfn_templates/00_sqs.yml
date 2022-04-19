@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create SQS
+
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "Project Name Prefix"
+        Parameters:
+          - PJPrefix
+    ParameterLabels:
+      Env:
+        default: "Environment"
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------#
+Parameters:
+  PJPrefix:
+    Type: String
+    Default: PJPrefix
+
+  Env:
+    Description: Type of this environment.
+    Type: String
+    Default: dev
+    AllowedValues:
+      - prd
+      - dev
+
+Resources:
+  # ------------------------------------------------------------#
+  # SQS
+  # ------------------------------------------------------------#
+  DeadLetterQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      DelaySeconds: 0
+      MaximumMessageSize: 262144
+      MessageRetentionPeriod: 1209600 # 14 days
+      ReceiveMessageWaitTimeSeconds: 20
+      VisibilityTimeout: 300
+      QueueName: !Sub ${Env}-${PJPrefix}-dlq
+
+  TriggerQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      DelaySeconds: 0
+      MaximumMessageSize: 262144
+      MessageRetentionPeriod: 1209600 # 14 days
+      ReceiveMessageWaitTimeSeconds: 20
+      VisibilityTimeout: 300
+      QueueName: !Sub ${Env}-${PJPrefix}-trigger-queue
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: 3 # attempt to retry 3 times
+
+  # ------------------------------------------------------------#
+  # SQS Policy
+  # ------------------------------------------------------------#
+  DeadLetterQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Id: !Ref DeadLetterQueue
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Action:
+            - SQS:*
+          Resource: !GetAtt DeadLetterQueue.Arn
+      Queues:
+        - !Ref DeadLetterQueue
+
+  TriggerQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Id: !Ref TriggerQueue
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Action:
+            - SQS:*
+          Resource: !GetAtt TriggerQueue.Arn
+      Queues:
+        - !Ref TriggerQueue
+
+# ------------------------------------------------------------#
+# Output Parameters
+# ------------------------------------------------------------#
+Outputs:
+  TriggerQueueName:
+    Value:
+      !GetAtt TriggerQueue.QueueName
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-trigger-queue-name
+  TriggerQueueArn:
+    Value:
+      !GetAtt TriggerQueue.Arn
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-trigger-queue-arn
+  TriggerQueueUrl:
+    Value:
+      !Ref TriggerQueue
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-trigger-queue-url
+  DeadLetterQueueName:
+    Value:
+      !GetAtt DeadLetterQueue.QueueName
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-dlq-name
+  DeadLetterQueueArn:
+    Value:
+      !GetAtt DeadLetterQueue.Arn
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-dlq-arn
+  DeadLetterQueueUrl:
+    Value:
+      !Ref DeadLetterQueue
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-dlq-url

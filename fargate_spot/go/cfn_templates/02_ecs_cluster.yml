@@ -26,6 +26,8 @@ Resources:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Sub "${PJPrefix}-cluster"
+      CapacityProviders:
+        - FARGATE_SPOT
       ClusterSettings:
         - Name: containerInsights
           Value: enabled

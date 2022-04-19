@@ -1,6 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description:
-  SecurityGroup, ECSTaskRole, ECSTaskExecutionRole Create
+Description: Create SecurityGroup, ECSTaskRole, ECSTaskExecutionRole
 
 Metadata:
   "AWS::CloudFormation::Interface":

@@ -1,0 +1,291 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create Task Definition, ECS Service, Auto Scaling
+
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "Project Name Prefix"
+        Parameters:
+          - PJPrefix
+    ParameterLabels:
+      Env:
+        default: "Environment"
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------#
+Parameters:
+  PJPrefix:
+    Type: String
+    Default: PJPrefix
+
+  SsmPath:
+    Type: String
+    Default: SsmPath
+
+  Env:
+    Description: Type of this environment.
+    Type: String
+    Default: dev
+    AllowedValues:
+      - prd
+      - dev
+
+  TaskCpu:
+    Type: Number
+    Default: 512
+
+  TaskMemory:
+    Type: Number
+    Default: 1024
+
+  Version:
+    Type: String
+
+  Subnet1:
+    Type: String
+    Default: Subnet1
+
+  Subnet2:
+    Type: String
+    Default: Subnet2
+
+  Subnet3:
+    Type: String
+    Default: Subnet3
+
+  TaskMinContainer:
+    Type: Number
+    Default: 1
+    MinValue: 1
+
+  TaskMaxContainer:
+    Type: Number
+    Default: 5
+    MinValue: 1
+
+  ServiceScaleEvaluationPeriods:
+    Type: Number
+    Default: 1
+    MinValue: 1
+
+  ServiceCpuScaleOutThreshold:
+    Type: Number
+    Default: 2
+    MinValue: 0
+    MaxValue: 100
+
+  ServiceCpuScaleInThreshold:
+    Type: Number
+    Default: 5 # TaskMaxContainer と同じ値
+    MinValue: 0
+    MaxValue: 100
+
+Resources:
+  # ------------------------------------------------------------#
+  # CloudWatch LogGroup
+  # ------------------------------------------------------------#
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "ecs/${Env}-${PJPrefix}-ecs-task"
+
+  # ------------------------------------------------------------#
+  # Task Definition
+  # ------------------------------------------------------------#
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${Env}-${PJPrefix}-ecs-task"
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref TaskCpu
+      Memory: !Ref TaskMemory
+      NetworkMode: awsvpc
+      ExecutionRoleArn: {'Fn::ImportValue': !Sub "${Env}-${PJPrefix}-ecs-task-execution-role-arn"}
+      TaskRoleArn: {'Fn::ImportValue': !Sub "${Env}-${PJPrefix}-ecs-task-role-arn"}
+      RuntimePlatform:
+        CpuArchitecture: "AMD64" # Fargate Spot は Graviton2（arm64）に未対応
+        OperatingSystemFamily: "LINUX"
+      ContainerDefinitions:
+        - Name: !Sub "${Env}-${PJPrefix}-container"
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${PJPrefix}:${Version}
+          Secrets:
+            - Name: ENV
+              ValueFrom: !Sub /${SsmPath}/${Env}/ENV
+            - Name: AWS_REGION
+              ValueFrom: !Sub /${SsmPath}/${Env}/AWS_REGION
+            - Name: END_POINT
+              ValueFrom: !Sub /${SsmPath}/${Env}/END_POINT
+            - Name: FROM_SQS_URL
+              ValueFrom: !Sub /${SsmPath}/${Env}/FROM_SQS_URL
+          Environment:
+            - Name: TZ
+              Value: Asia/Tokyo
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: ecs
+          Essential: true
+
+  # ------------------------------------------------------------#
+  # ECS Service
+  # ------------------------------------------------------------#
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub "${Env}-${PJPrefix}-ecs-service"
+      Cluster: {'Fn::ImportValue': !Sub "${PJPrefix}-cluster-name"}
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: 1
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE_SPOT
+          Base: 0
+          Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - {'Fn::ImportValue': !Sub "${Env}-${PJPrefix}-container-sg"}
+          Subnets:
+            - !Ref Subnet1
+            - !Ref Subnet2
+            - !Ref Subnet3
+
+  # ------------------------------------------------------------#
+  #  Auto Scaling Service
+  # ------------------------------------------------------------#
+  ServiceAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Env}-${PJPrefix}-service-auto-scaling-role"
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: application-autoscaling.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "AllowAutoscalingOperations"
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - application-autoscaling:*
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - ecs:DescribeServices
+                  - ecs:UpdateService
+                Resource: '*'
+
+  ServiceScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref TaskMinContainer
+      MaxCapacity: !Ref TaskMaxContainer
+      ResourceId: !Sub
+        - service/${EcsClusterName}/${EcsDefaultServiceName}
+        - EcsClusterName: {'Fn::ImportValue': !Sub "${PJPrefix}-cluster-name"}
+          EcsDefaultServiceName: !GetAtt Service.Name
+      RoleARN: !GetAtt ServiceAutoScalingRole.Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+    DependsOn:
+      - ServiceAutoScalingRole
+
+  ServiceScaleOutPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub "${Env}-${PJPrefix}-service-scaleout-policy"
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ServiceScalingTarget
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: 1
+            MetricIntervalLowerBound: 0
+    DependsOn: ServiceScalingTarget
+
+  ServiceScaleInPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub "${Env}-${PJPrefix}-service-scalein-policy"
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ServiceScalingTarget
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+          - ScalingAdjustment: -1
+            MetricIntervalUpperBound: 0
+    DependsOn: ServiceScalingTarget
+
+  ServiceScaleOutAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Env}-${PJPrefix}-service-scaleout-alarm"
+      EvaluationPeriods: !Ref ServiceScaleEvaluationPeriods
+      Threshold: !Ref ServiceCpuScaleOutThreshold
+      AlarmDescription: Alarm if SQS queue messages is above threshold
+      Period: 60
+      AlarmActions:
+        - !Ref ServiceScaleOutPolicy
+      Dimensions:
+        - Name: QueueName
+          Value: {'Fn::ImportValue': !Sub "${Env}-${PJPrefix}-trigger-queue-name"}
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Statistic: Sum
+      Unit: Count
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+    DependsOn:
+      - ServiceScaleOutPolicy
+
+  ServiceScaleInAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Env}-${PJPrefix}-service-scalein-alarm"
+      EvaluationPeriods: !Ref ServiceScaleEvaluationPeriods
+      Threshold: !Ref ServiceCpuScaleInThreshold
+      AlarmDescription: Alarm if SQS queue depth is below threshold
+      Period: 60
+      AlarmActions:
+        - !Ref ServiceScaleInPolicy
+      Dimensions:
+        - Name: QueueName
+          Value: {'Fn::ImportValue': !Sub "${Env}-${PJPrefix}-trigger-queue-name"}
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Statistic: Sum
+      Unit: Count
+      ComparisonOperator: LessThanOrEqualToThreshold
+    DependsOn:
+      - ServiceScaleInPolicy
+
+# ------------------------------------------------------------#
+# Output Parameters
+# ------------------------------------------------------------#
+Outputs:
+  TaskDefinitionArn:
+    Value:
+      !Ref TaskDefinition
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-task-definition
+
+  ServiceNameArn:
+    Value:
+      !Ref Service
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-service-arn
+  ServiceName:
+    Value:
+      !GetAtt Service.Name
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-service-name
