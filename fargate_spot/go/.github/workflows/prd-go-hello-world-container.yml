@@ -104,40 +104,25 @@ jobs:
           docker push $ECR_REGISTRY/$IMAGE_NAME
           echo "::set-output name=IMAGE_NAME::$IMAGE_NAME"
 
-      - name: Update Task Definition
+      - name: Update Managed Task
         working-directory: ./cfn_templates
         env:
           PJ_PREFIX: ${{ steps.set-secrets.outputs.PJ_PREFIX }}
           SSM_PATH: ${{ secrets.AWS_SSM_PATH_NAME }}
           VERSION: ${{ steps.set-tag.outputs.TAG_NAME }}
-        run: |
-          aws cloudformation deploy \
-            --stack-name ${ENV}-${PJ_PREFIX}-ecs-task-stack \
-            --template-file 04_ecs_task.yml \
-            --capabilities CAPABILITY_AUTO_EXPAND \
-            --parameter-overrides \
-              PJPrefix=${PJ_PREFIX} \
-              SsmPath=${SSM_PATH} \
-              Env=${ENV} \
-              Version=${VERSION}
-
-      - name: Update ECS Service
-        working-directory: ./cfn_templates
-        env:
-          PJ_PREFIX: ${{ steps.set-secrets.outputs.PJ_PREFIX }}
           SUBNET1: ${{ steps.set-secrets.outputs.SUBNET1 }}
           SUBNET2: ${{ steps.set-secrets.outputs.SUBNET2 }}
           SUBNET3: ${{ steps.set-secrets.outputs.SUBNET3 }}
         run: |
-          aws cloudformation delete-stack \
-            --stack-name ${PJ_PREFIX}-ecs-service-stack
           aws cloudformation deploy \
-            --stack-name ${PJ_PREFIX}-ecs-service-stack \
-            --template-file 05_ecs_service.yml \
-            --capabilities CAPABILITY_AUTO_EXPAND \
+            --stack-name ${ENV}-${PJ_PREFIX}-managed-task-stack \
+            --template-file 04_managed_task.yml \
+            --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
               PJPrefix=${PJ_PREFIX} \
+              SsmPath=${SSM_PATH} \
               Env=${ENV} \
+              Version=${VERSION} \
               Subnet1=${SUBNET1} \
               Subnet2=${SUBNET1} \
               Subnet3=${SUBNET3}
