@@ -130,6 +130,7 @@ Resources:
               awslogs-group: !Ref LogGroup
               awslogs-stream-prefix: ecs
           Essential: true
+    DependsOn: LogGroup
 
   # ------------------------------------------------------------#
   # ECS Service
@@ -154,6 +155,7 @@ Resources:
             - !Ref Subnet1
             - !Ref Subnet2
             - !Ref Subnet3
+    DependsOn: TaskDefinition
 
   # ------------------------------------------------------------#
   #  Auto Scaling Service
@@ -181,6 +183,7 @@ Resources:
                   - ecs:DescribeServices
                   - ecs:UpdateService
                 Resource: '*'
+    DependsOn: Service
 
   ServiceScalingTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
