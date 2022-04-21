@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create Auto Scaling
+
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "Project Name Prefix"
+        Parameters:
+          - PJPrefix
+    ParameterLabels:
+      Env:
+        default: "Environment"
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------#
+Parameters:
+  PJPrefix:
+    Type: String
+    Default: PJPrefix
+
+  Env:
+    Description: Type of this environment.
+    Type: String
+    Default: dev
+    AllowedValues:
+      - prd
+      - dev
+
+  TaskMinContainer:
+    Type: Number
+    Default: 1
+    MinValue: 1
+
+  TaskMaxContainer:
+    Type: Number
+    Default: 10
+    MinValue: 1
+
+  ServiceScaleEvaluationPeriods:
+    Type: Number
+    Default: 1
+    MinValue: 1
+
+  ServiceScalingThreshold:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 100
+
+Resources:
+  # ------------------------------------------------------------#
+  #  Auto Scaling Service
+  # ------------------------------------------------------------#
+  ServiceAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Env}-${PJPrefix}-service-auto-scaling-role"
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: application-autoscaling.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: "AllowScalingOperations"
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - application-autoscaling:*
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - ecs:DescribeServices
+                  - ecs:UpdateService
+                Resource: '*'
+
+  ServiceScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref TaskMinContainer
+      MaxCapacity: !Ref TaskMaxContainer
+      ResourceId: !Sub
+        - service/${EcsClusterName}/${EcsDefaultServiceName}
+        - EcsClusterName: {'Fn::ImportValue': !Sub "${PJPrefix}-cluster-name"}
+          EcsDefaultServiceName: {'Fn::ImportValue': !Sub "${Env}-${PJPrefix}-service-name"}
+      RoleARN: !GetAtt ServiceAutoScalingRole.Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+    DependsOn:
+      - ServiceAutoScalingRole
+
+  ServiceScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub "${Env}-${PJPrefix}-service-scaling-policy"
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ServiceScalingTarget
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ExactCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+          - MetricIntervalLowerBound: 0
+            MetricIntervalUpperBound: 3
+            ScalingAdjustment: !Ref TaskMinContainer
+          - MetricIntervalLowerBound: 3
+            MetricIntervalUpperBound: 6
+            ScalingAdjustment: 5
+          - MetricIntervalLowerBound: 6
+            ScalingAdjustment: !Ref TaskMaxContainer
+    DependsOn: ServiceScalingTarget
+
+  ServiceScalingAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${Env}-${PJPrefix}-service-scaling-alarm"
+      EvaluationPeriods: !Ref ServiceScaleEvaluationPeriods
+      Threshold: !Ref ServiceScalingThreshold
+      AlarmDescription: Alarm if SQS queue messages is above threshold
+      Period: 60
+      AlarmActions:
+        - !Ref ServiceScalingPolicy
+      Dimensions:
+        - Name: QueueName
+          Value: {'Fn::ImportValue': !Sub "${Env}-${PJPrefix}-trigger-queue-name"}
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Statistic: Sum
+      Unit: Count
+      ComparisonOperator: GreaterThanThreshold
+    DependsOn:
+      - ServiceScalingPolicy

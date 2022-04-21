@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Create SecurityGroup, ECSTaskRole, ECSTaskExecutionRole
+Description:
+  SecurityGroup, ECSTaskRole, ECSTaskExecutionRole Create
 
 Metadata:
   "AWS::CloudFormation::Interface":
@@ -72,6 +73,7 @@ Resources:
                   - "secretsmanager:GetSecretValue"
                   - "kms:Decrypt"
                 Resource: "*"
+
         - PolicyName: AllowSQSOperations
           PolicyDocument:
             Version: "2012-10-17"
