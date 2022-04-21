@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create Task Definition, ECS Service, Auto Scaling
+
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "Project Name Prefix"
+        Parameters:
+          - PJPrefix
+    ParameterLabels:
+      Env:
+        default: "Environment"
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------#
+Parameters:
+  PJPrefix:
+    Type: String
+    Default: PJPrefix
+
+  SsmPath:
+    Type: String
+    Default: SsmPath
+
+  Env:
+    Description: Type of this environment.
+    Type: String
+    Default: dev
+    AllowedValues:
+      - prd
+      - dev
+
+  TaskCpu:
+    Type: Number
+    Default: 512
+
+  TaskMemory:
+    Type: Number
+    Default: 1024
+
+  Version:
+    Type: String
+
+  Subnet1:
+    Type: String
+    Default: Subnet1
+
+  Subnet2:
+    Type: String
+    Default: Subnet2
+
+  Subnet3:
+    Type: String
+    Default: Subnet3
+
+Resources:
+  # ------------------------------------------------------------#
+  # CloudWatch LogGroup
+  # ------------------------------------------------------------#
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "ecs/${Env}-${PJPrefix}-ecs-task"
+
+  # ------------------------------------------------------------#
+  # Task Definition
+  # ------------------------------------------------------------#
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${Env}-${PJPrefix}-ecs-task"
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref TaskCpu
+      Memory: !Ref TaskMemory
+      NetworkMode: awsvpc
+      ExecutionRoleArn: {'Fn::ImportValue': !Sub "${Env}-${PJPrefix}-ecs-task-execution-role-arn"}
+      TaskRoleArn: {'Fn::ImportValue': !Sub "${Env}-${PJPrefix}-ecs-task-role-arn"}
+      RuntimePlatform:
+        CpuArchitecture: "X86_64" # Fargate Spot は Graviton2（arm64）に未対応
+        OperatingSystemFamily: "LINUX"
+      ContainerDefinitions:
+        - Name: !Sub "${Env}-${PJPrefix}-container"
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${PJPrefix}:${Version}
+          Secrets:
+            - Name: ENV
+              ValueFrom: !Sub /${SsmPath}/${Env}/ENV
+            - Name: AWS_REGION
+              ValueFrom: !Sub /${SsmPath}/${Env}/AWS_REGION
+            - Name: END_POINT
+              ValueFrom: !Sub /${SsmPath}/${Env}/END_POINT
+            - Name: FROM_SQS_URL
+              ValueFrom: !Sub /${SsmPath}/${Env}/FROM_SQS_URL
+          Environment:
+            - Name: TZ
+              Value: Asia/Tokyo
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: ecs
+          Essential: true
+
+  # ------------------------------------------------------------#
+  # ECS Service
+  # ------------------------------------------------------------#
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub "${Env}-${PJPrefix}-ecs-service"
+      Cluster: {'Fn::ImportValue': !Sub "${PJPrefix}-cluster-name"}
+      TaskDefinition: !Ref TaskDefinition
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE_SPOT
+          Base: 0
+          Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - {'Fn::ImportValue': !Sub "${Env}-${PJPrefix}-container-sg"}
+          Subnets:
+            - !Ref Subnet1
+            - !Ref Subnet2
+            - !Ref Subnet3
+    DependsOn: TaskDefinition
+
+# ------------------------------------------------------------#
+# Output Parameters
+# ------------------------------------------------------------#
+Outputs:
+  TaskDefinitionArn:
+    Value:
+      !Ref TaskDefinition
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-task-definition
+
+  ServiceNameArn:
+    Value:
+      !Ref Service
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-service-arn
+  ServiceName:
+    Value:
+      !GetAtt Service.Name
+    Export:
+      Name: !Sub ${Env}-${PJPrefix}-service-name
