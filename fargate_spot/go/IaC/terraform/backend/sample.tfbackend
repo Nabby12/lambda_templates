@@ -1,0 +1,5 @@
+bucket = "sample-bucket-name"
+region = "ap-xxxxxx-1"
+key = "pj-prefix/env/terraform.tfstate"
+encrypt = true
+dynamodb_table = "state-lock-dynamo-name"
