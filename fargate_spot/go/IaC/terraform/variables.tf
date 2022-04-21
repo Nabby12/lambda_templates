@@ -1,0 +1,9 @@
+variable "aws_account_id" {}
+variable "aws_region" {}
+variable "pj_prefix" {}
+variable "env" {}
+variable "vpc_id" {}
+variable "image_version" {}
+variable "subnet1" {}
+variable "subnet2" {}
+variable "subnet3" {}
