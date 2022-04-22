@@ -1,8 +1,20 @@
+use std::env;
+use std::process;
+
 use lambda_runtime::{service_fn, LambdaEvent, Error};
 use serde_json::{json, Value};
 
 async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     println!("-- Start function --");
+
+    let os_env = match env::var("ENV") {
+        Ok(value) => value,
+        Err(err) => {
+            println!("{}: {}", err, "ENV");
+            process::exit(1);
+        },
+    };
+    println!("Env: {}", os_env);
 
     let (event, _context) = event.into_parts();
     let event_value = event["key"].as_str().unwrap_or("key is not existed");

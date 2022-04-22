@@ -3,11 +3,13 @@ FROM rust:latest as builder
 ENV ARCH=x86_64-unknown-linux-musl
 WORKDIR /app
 
-RUN rustup target add ${ARCH}
+RUN apt-get update -y && \
+    apt-get install -y musl-tools && \
+    rustup target add ${ARCH}
 
 COPY ./app/ /app/
 
-RUN cargo build --release --target ${ARCH} && \
+RUN PKG_CONFIG_ALLOW_CROSS=1 cargo build --release --target ${ARCH} && \
     mkdir bin && \
     cp ./target/${ARCH}/release/bootstrap ./bin/bootstrap
 
