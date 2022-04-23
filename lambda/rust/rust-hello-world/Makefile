@@ -1,5 +1,6 @@
 IMAGE_NAME = build-image
 CONTAINER_NAME = build-container
+EVENT_FILE = event/event.json
 
 build:
 	docker build --target runner -t ${IMAGE_NAME} -f docker/Dockerfile .
@@ -10,7 +11,7 @@ build:
 		${IMAGE_NAME} ./bootstrap
 
 run:
-	curl -d @event/event.json http://localhost:9000/2015-03-31/functions/function/invocations
+	curl -d @${EVENT_FILE} http://localhost:9000/2015-03-31/functions/function/invocations
 
 log:
 	docker logs -t ${CONTAINER_NAME}
