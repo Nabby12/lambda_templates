@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  go-send-sqs-function
+Globals:
+  Function:
+    Timeout: 5
+
+Parameters:
+  PJPrefix:
+    Type: String
+  SsmPath:
+    Type: String
+  Env:
+    Type: String
+
+Resources:
+  # ------------------------------------------------------------#
+  # Lambda
+  # ------------------------------------------------------------#
+  GoSendSqsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Env}-${PJPrefix}"
+      CodeUri: ./app
+      Handler: bootstrap
+      Runtime: provided.al2
+      Architectures:
+        - arm64
+      Tracing: Active
+      Role: !GetAtt GoSendSqsLambdaRole.Arn
+      Environment:
+        Variables:
+          SSM_PATH:
+            Ref: SsmPath
+          ENV:
+            Ref: Env
+    Metadata:
+      BuildMethod: makefile
+    DependsOn:
+      - GoSendSqsLambdaRole
+
+  # ------------------------------------------------------------#
+  # Log Group
+  # ------------------------------------------------------------#
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${GoSendSqsLambda}
+      RetentionInDays: 60
+
+  # ------------------------------------------------------------#
+  # IAMRole
+  # ------------------------------------------------------------#
+  GoSendSqsLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Env}-${PJPrefix}-role"
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+      Policies:
+        - PolicyName: AllowSecretsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "sts:AssumeRole"
+                  - "ssm:GetParameter"
+                  - "ssm:GetParameters"
+                  - "ssm:GetParametersByPath"
+                  - "secretsmanager:GetSecretValue"
+                  - "kms:Decrypt"
+                Resource: "*"
+
+        - PolicyName: AllowSQSOperations
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "sqs:ReceiveMessage"
+                  - "sqs:SendMessage"
+                  - "sqs:DeleteMessage"
+                  - "sqs:GetQueueAttributes"
+                Resource: "*"
+
+Outputs:
+  GoSendSqsLambda:
+    Description: "First Lambda Function ARN"
+    Value: !GetAtt GoSendSqsLambda.Arn
+
+  GoSendSqsLambdaRole:
+    Value: !GetAtt GoSendSqsLambdaRole.Arn
+    Export:
+      Name: !Sub "${Env}-${PJPrefix}-role-arn"

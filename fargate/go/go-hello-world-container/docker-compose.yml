@@ -5,7 +5,7 @@ x-db-build: &build
     context: .
     dockerfile: ./docker/database/Dockerfile
 x-db-environment: &environment
-  MYSQL_DATABASE: toletta
+  MYSQL_DATABASE: sandbox
   MYSQL_USER: user
   MYSQL_PASSWORD: password
   MYSQL_ROOT_PASSWORD: password
