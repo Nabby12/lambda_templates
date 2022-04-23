@@ -6,11 +6,8 @@ build:
 	docker run --name ${CONTAINER_NAME} -d \
 		-p 9000:8080 \
 		--env-file=./env/local.env \
+		-v $(CURDIR)/credentials/:/root/.aws/ \
 		${IMAGE_NAME} ./bootstrap
-
-## aws credentials をマウントする場合 docker run コマンドに下記を追加
-## 対象ユーザーがmfa必須の場合は疎通されない
-## -v $(HOME)/.aws/:/root/.aws/
 
 run:
 	curl -d @event/event.json http://localhost:9000/2015-03-31/functions/function/invocations

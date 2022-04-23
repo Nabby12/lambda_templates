@@ -5,7 +5,8 @@ build:
 	docker build --target runner -t ${IMAGE_NAME} -f docker/Dockerfile .
 	docker run --name ${CONTAINER_NAME} -d \
 		-p 9000:8080 \
-		--env-file=./env/.local.env \
+		--env-file=./env/local.env \
+		-v $(CURDIR)/credentials/:/root/.aws/ \
 		${IMAGE_NAME} ./bootstrap
 
 run:

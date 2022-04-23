@@ -25,7 +25,7 @@ services:
         source: ./app
         target: /go/src/app
       - type: bind
-        source: ~/.aws
+        source: ./credentials
         target: /root/.aws
     depends_on:
       - sandbox-db-mysql
