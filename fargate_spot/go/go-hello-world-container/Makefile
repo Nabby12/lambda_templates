@@ -1,9 +1,10 @@
 include env/makefile.env
+EVENT_FILE=local_message.json
 WAIT_SECONDS=5
 
 invoke:
 	docker compose up -d
-	aws sqs send-message --cli-input-json file://event/local_message.json --endpoint-url http://localhost:9324
+	aws sqs send-message --cli-input-json file://event/${EVENT_FILE} --endpoint-url http://localhost:9324
 	sleep ${WAIT_SECONDS}
 	docker logs ${CONTAINER_NAME}
 
