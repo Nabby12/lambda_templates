@@ -7,13 +7,7 @@ use serde_json::{json, Value};
 async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     println!("-- Start function --");
 
-    let os_env = match env::var("ENV") {
-        Ok(value) => value,
-        Err(err) => {
-            println!("{}: {}", err, "ENV");
-            process::exit(1);
-        },
-    };
+    let os_env: String = get_env("ENV").await;
     println!("Env: {}", os_env);
 
     let (event, _context) = event.into_parts();
@@ -24,6 +18,18 @@ async fn handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
     println!("-- Exit function --");
 
     Ok(json!({ "message": format!("return_message: {}!", event_value) }))
+}
+
+async fn get_env(key: &str) -> String {
+    let os_value = match env::var(key) {
+        Ok(value) => value,
+        Err(err) => {
+            println!("{}: {}", err, key);
+            process::exit(1);
+        },
+    };
+
+    os_value.to_string()
 }
 
 #[tokio::main]
