@@ -14,3 +14,9 @@ terraform {
 provider "aws" {
   region = var.aws_region
 }
+
+module "shared" {
+  source = "../../modules/shared"
+
+  pj_prefix = var.pj_prefix
+}

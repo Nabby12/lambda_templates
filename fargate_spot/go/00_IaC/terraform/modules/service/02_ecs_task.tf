@@ -22,8 +22,8 @@ resource "aws_ecs_task_definition" "task_definition" {
   cpu                      = local.task_cpu
   memory                   = local.task_memory
   network_mode             = "awsvpc"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_role.arn
+  execution_role_arn       = var.ecs_task_execution_role_arn
+  task_role_arn            = var.ecs_task_role_arn
   runtime_platform {
     cpu_architecture        = "X86_64" # Fargate Spot は Graviton2（arm64）に未対応
     operating_system_family = "LINUX"
@@ -42,12 +42,12 @@ resource "aws_ecs_task_definition" "task_definition" {
           "valueFrom" : "${aws_ssm_parameter.aws_region.arn}"
         },
         {
-          "name" : "END_POINT",
-          "valueFrom" : "${aws_ssm_parameter.end_point.arn}"
+          "name" : "SQS_END_POINT",
+          "valueFrom" : "${aws_ssm_parameter.sqs_end_point.arn}"
         },
         {
-          "name" : "FROM_SQS_URL",
-          "valueFrom" : "${aws_ssm_parameter.from_sqs_url.arn}"
+          "name" : "TRIGGER_QUEUE_URL",
+          "valueFrom" : "${aws_ssm_parameter.trigger_queue_url.arn}"
         }
       ],
       environment : [

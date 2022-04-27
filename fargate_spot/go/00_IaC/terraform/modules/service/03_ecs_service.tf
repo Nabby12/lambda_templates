@@ -3,7 +3,7 @@
 # ------------------------------------------------------------#
 resource "aws_ecs_service" "ecs_service" {
   name            = "${var.env}-${var.pj_prefix}-ecs-service"
-  cluster         = aws_ecs_cluster.cluster.id
+  cluster         = var.cluster_id
   task_definition = aws_ecs_task_definition.task_definition.arn
 
   capacity_provider_strategy {
@@ -18,7 +18,7 @@ resource "aws_ecs_service" "ecs_service" {
       "${var.subnet3}"
     ]
     security_groups = [
-      "${aws_security_group.container_sg.id}"
+      "${var.container_sg_id}"
     ]
     assign_public_ip = false
   }

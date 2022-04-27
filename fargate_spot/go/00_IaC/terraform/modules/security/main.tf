@@ -85,6 +85,8 @@ resource "aws_iam_role" "ecs_task_role" {
       ]
     })
   }
+
+  # コンテナからs3等にアクセスする場合、このロールにpolicyを追加
 }
 
 resource "aws_iam_role" "ecs_task_execution_role" {
