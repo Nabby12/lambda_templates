@@ -1,0 +1,13 @@
+variable "aws_account_id" {}
+variable "aws_region" {}
+variable "pj_prefix" {}
+variable "env" {}
+variable "image_version" {}
+variable "subnet1" {}
+variable "subnet2" {}
+variable "subnet3" {}
+variable "cluster_id" {}
+variable "cluster_name" {}
+variable "ecs_task_role_arn" {}
+variable "ecs_task_execution_role_arn" {}
+variable "container_sg_id" {}

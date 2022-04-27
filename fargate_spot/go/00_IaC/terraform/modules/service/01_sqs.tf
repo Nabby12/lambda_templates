@@ -18,7 +18,7 @@ resource "aws_sqs_queue" "trigger_queue" {
   receive_wait_time_seconds  = 20
   visibility_timeout_seconds = 300
   redrive_policy = jsonencode({
-    deadLetterTargetArn = aws_sqs_queue.dead_letter_queue.arn
+    deadLetterTargetArn = "${aws_sqs_queue.dead_letter_queue.arn}"
     maxReceiveCount     = 3 # attempt to retry 3 times
   })
 }

@@ -3,7 +3,8 @@
 # ------------------------------------------------------------#
 locals {
   # 1件あたりのキュー消化時間とリクエスト数から割り出す（最小台数の料金が安いのか？）
-  task_min_container               = var.env == "dev" ? 0 : 1
+  # task_min_container               = var.env == "dev" ? 0 : 20
+  task_min_container               = var.env == "dev" ? 0 : 0
   task_max_container               = 10
   service_scale_ecaluation_periods = 1
   service_scaling_threshold        = 0
@@ -58,7 +59,7 @@ resource "aws_iam_role" "service_auto_scaling_role" {
 resource "aws_appautoscaling_target" "service_scaling_target" {
   min_capacity       = local.task_min_container
   max_capacity       = local.task_max_container
-  resource_id        = "service/${aws_ecs_cluster.cluster.name}/${aws_ecs_service.ecs_service.name}"
+  resource_id        = "service/${var.cluster_name}/${aws_ecs_service.ecs_service.name}"
   role_arn           = aws_iam_role.service_auto_scaling_role.arn
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"

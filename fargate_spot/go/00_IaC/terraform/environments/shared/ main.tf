@@ -6,11 +6,17 @@ terraform {
     }
   }
   backend "s3" {
-    # backend/${env}.tfbackendにて定義
-    # terraform init -reconfigure -backend-config=backend/${env}.tfbackend
+    # ${env}.tfbackendにて定義
+    # terraform init -backend-config=${env}.tfbackend
   }
 }
 
 provider "aws" {
   region = var.aws_region
+}
+
+module "shared" {
+  source = "../../modules/shared"
+
+  pj_prefix = var.pj_prefix
 }
