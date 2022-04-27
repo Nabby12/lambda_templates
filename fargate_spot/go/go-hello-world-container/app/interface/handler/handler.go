@@ -7,21 +7,16 @@ import (
 	"os"
 	"time"
 
-	"app/infrastructure"
-	"app/infrastructure/config"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"app/domain"
+	"app/infrastructure/queue"
 )
 
-type RequestParam struct {
-	ParamA string `json:"param_a"`
-	ParamB string `json:"param_b"`
-}
-
 func Handler(ctx context.Context) {
-	sess := config.NewSession()
-	sqsSvc := sqs.New(sess, aws.NewConfig().WithEndpoint(os.Getenv("END_POINT")))
+	qr, err := queue.NewQueueRepository()
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return
+	}
 
 	for {
 		select {
@@ -29,9 +24,9 @@ func Handler(ctx context.Context) {
 			fmt.Println("!!! Task Canceled !!!")
 			return
 		default:
-			var req RequestParam
+			var req domain.RequestParam
 
-			message, err := infrastructure.ReceiveMessage(sqsSvc)
+			message, err := qr.ReceiveMsg(os.Getenv("TRIGGER_QUEUE_URL"))
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -41,8 +36,7 @@ func Handler(ctx context.Context) {
 			}
 
 			for _, msg := range message {
-				err := json.Unmarshal([]byte(*msg.Body), &req)
-				if err != nil {
+				if err := json.Unmarshal([]byte(*msg.Body), &req); err != nil {
 					fmt.Println(err)
 					continue
 				}
@@ -51,10 +45,23 @@ func Handler(ctx context.Context) {
 			result, err := Execute(req)
 			if err != nil {
 				fmt.Printf("execute failed: %v\n", err)
+
+				// 必ず失敗する致命的なエラーの場合は、メッセージ削除
+				if domain.IsFatal(err) {
+					fmt.Println("fatal error")
+					if err := qr.DeleteMsg(os.Getenv("TRIGGER_QUEUE_URL"), message...); err != nil {
+						fmt.Printf("dlq send failed: %v\n", err)
+					}
+					time.Sleep(2 * time.Second)
+				}
+
+				continue
 			}
 			fmt.Printf("%v\n", result)
 
-			infrastructure.DeleteMessage(sqsSvc, message...)
+			if err := qr.DeleteMsg(os.Getenv("TRIGGER_QUEUE_URL"), message...); err != nil {
+				fmt.Printf("dlq send failed: %v\n", err)
+			}
 			time.Sleep(2 * time.Second)
 		}
 	}
