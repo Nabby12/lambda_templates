@@ -12,7 +12,7 @@ on:
     paths:
       - '.github/workflows/dev-go-hello-world-container.yml'
       - 'go-hello-world-container/**'
-      - 'cfn_templates/**'
+      - '00_IaC/**'
       - '!**.md'
     branches: [develop]
     types: [closed]
@@ -53,9 +53,14 @@ jobs:
           ssm_path_name: ${{ secrets.AWS_SSM_PATH_NAME }}
           env: ${{ secrets.ENV_DEV }}
           cd_parameters: |-
+            TERRAFORM_BUCKET
+            TERRAFORM_DYNAMO_TABLE
             SLACK_WEBHOOK_GH_NOTIFY
           parameters: |-
-            PJ_PREFIX
+            VPC_ID
+            SUBNET1
+            SUBNET2
+            SUBNET3
 
       - name: Set SSM Parameters
         id: set-secrets
@@ -63,8 +68,13 @@ jobs:
           SSM_PARAMETERS: ${{ steps.ssm-parameters.outputs.ssm_parameters }}
         run: |
           PARAMETERS_ARRAY=( \
+            TERRAFORM_BUCKET \
+            TERRAFORM_DYNAMO_TABLE \
             SLACK_WEBHOOK_GH_NOTIFY \
-            PJ_PREFIX \
+            VPC_ID \
+            SUBNET1 \
+            SUBNET2 \
+            SUBNET3 \
           )
           for key in "${PARAMETERS_ARRAY[@]}"; \
           do \
@@ -104,28 +114,48 @@ jobs:
           docker push $ECR_REGISTRY/$IMAGE_NAME
           echo "::set-output name=IMAGE_NAME::$IMAGE_NAME"
 
-      - name: Update Managed Task
-        working-directory: ./cfn_templates
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.1.9
+
+      - name: Generate backend setting file
+        working-directory: ./00_IaC/terraform/environments/dev
         env:
-          PJ_PREFIX: ${{ steps.set-secrets.outputs.PJ_PREFIX }}
-          SSM_PATH: ${{ secrets.AWS_SSM_PATH_NAME }}
-          VERSION: ${{ steps.set-tag.outputs.TAG_NAME }}
+          TERRAFORM_BUCKET: ${{ steps.set-secrets.outputs.TERRAFORM_BUCKET }}
+          TERRAFORM_DYNAMO_TABLE: ${{ steps.set-secrets.outputs.TERRAFORM_DYNAMO_TABLE }}
+        run: |
+          TARGET_FILE=${ENV}.tfbackend
+          echo $(eval echo 'bucket=\"${TERRAFORM_BUCKET}\"') >> ${TARGET_FILE}
+          echo $(eval echo 'region=\"${{ secrets.AWS_DEFAULT_REGION }}\"') >> ${TARGET_FILE}
+          echo $(eval echo 'key=\"${{ secrets.PJ_PREFIX }}/${ENV}/terraform.tfstate\"') >> ${TARGET_FILE}
+          echo $(eval echo 'encrypt=\"true\"') >> ${TARGET_FILE}
+          echo $(eval echo 'dynamodb_table=\"${TERRAFORM_DYNAMO_TABLE}\"') >> ${TARGET_FILE}
+          terraform fmt
+
+      - name: Update by Terraform
+        working-directory: ./00_IaC/terraform/environments/dev
+        env:
+          VPC_ID: ${{ steps.set-secrets.outputs.VPC_ID }}
+          IMAGE_VERSION: ${{ steps.set-tag.outputs.TAG_NAME }}
           SUBNET1: ${{ steps.set-secrets.outputs.SUBNET1 }}
           SUBNET2: ${{ steps.set-secrets.outputs.SUBNET2 }}
           SUBNET3: ${{ steps.set-secrets.outputs.SUBNET3 }}
         run: |
-          aws cloudformation deploy \
-            --stack-name ${ENV}-${PJ_PREFIX}-managed-task-stack \
-            --template-file 04_managed_task.yml \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides \
-              PJPrefix=${PJ_PREFIX} \
-              SsmPath=${SSM_PATH} \
-              Env=${ENV} \
-              Version=${VERSION} \
-              Subnet1=${SUBNET1} \
-              Subnet2=${SUBNET1} \
-              Subnet3=${SUBNET3}
+          terraform init -backend-config=${ENV}.tfbackend
+          terraform fmt -recursive -check
+          terraform validate
+          terraform apply \
+            -auto-approve \
+            -var "aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" \
+            -var "aws_default_region=${{ secrets.AWS_DEFAULT_REGION }}" \
+            -var "pj_prefix=${{ secrets.PJ_PREFIX }}" \
+            -var "env=${{ secrets.ENV_DEV }}" \
+            -var "vpc_id=$VPC_ID" \
+            -var "image_version=$IMAGE_VERSION" \
+            -var "subnet1=$SUBNET1" \
+            -var "subnet2=$SUBNET2" \
+            -var "subnet3=$SUBNET3"
 
       - name: Notify result to slack
         uses: homoluctus/slatify@master
