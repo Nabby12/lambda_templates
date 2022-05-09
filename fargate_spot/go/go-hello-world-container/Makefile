@@ -3,7 +3,9 @@ EVENT_FILE=local_message.json
 WAIT_SECONDS=5
 
 invoke:
+	docker compose down
 	docker compose up -d
+	sleep ${WAIT_SECONDS}
 	aws sqs send-message --cli-input-json file://event/${EVENT_FILE} --endpoint-url http://localhost:9324
 	sleep ${WAIT_SECONDS}
 	docker logs ${CONTAINER_NAME}
