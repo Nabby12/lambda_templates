@@ -59,7 +59,7 @@ async function handler() {
         const params = {
           Name: parameter.path + parameter.key,
           WithDecryption: true
-        }; console.log("---> " + params.Name)
+        }
         const response = await ssm.getParameter(params)
         .promise()
         .then(data => {
