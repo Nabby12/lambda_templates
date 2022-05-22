@@ -30,19 +30,26 @@ async function handler() {
 
     // 取得するパラメータストアのパス+名称を一つの配列に格納
     let ssm_params = []
+
     CD_PARAMETERS.map(parameter => {
-      const param = {
-        path: ssm_cd_path,
-        key: parameter
+      if (parameter.length > 0) {
+        const param = {
+          path: ssm_cd_path,
+          key: parameter
+        }
+        ssm_params.push(param)
       }
-      ssm_params.push(param)
     })
+
+
     PARAMETERS.map(parameter => {
-      const param = {
-        path: ssm_path,
-        key: parameter
+      if (parameter.length > 0) {
+        const param = {
+          path: ssm_path,
+          key: parameter
+        }
+        ssm_params.push(param)
       }
-      ssm_params.push(param)
     })
 
     // 対象のパラメータストアの値をすべて取得
