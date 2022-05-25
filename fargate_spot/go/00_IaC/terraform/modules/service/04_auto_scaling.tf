@@ -4,10 +4,11 @@
 locals {
   # 1件あたりのキュー消化時間とリクエスト数から割り出す（最小台数の料金が安いのか？）
   # task_min_container               = var.env == "dev" ? 0 : 20
-  task_min_container               = var.env == "dev" ? 0 : 0
+  task_min_container               = var.env == "dev" ? 0 : 0 # 一時的に本番環境も「0」
+  task_scale_out_min_container     = 3
   task_max_container               = 10
-  service_scale_ecaluation_periods = 1
-  service_scaling_threshold        = 0
+  service_scale_evaluation_periods = 1
+  service_scaling_threshold        = 3
 }
 
 # ------------------------------------------------------------#
@@ -83,12 +84,16 @@ resource "aws_appautoscaling_policy" "service_scaling_policy" {
     metric_aggregation_type = "Average"
 
     step_adjustment {
-      metric_interval_lower_bound = 0
-      metric_interval_upper_bound = 3
+      metric_interval_upper_bound = 0 # しきい値からプラスマイナス「0」
       scaling_adjustment          = local.task_min_container
     }
     step_adjustment {
-      metric_interval_lower_bound = 3
+      metric_interval_lower_bound = 0
+      metric_interval_upper_bound = 3
+      scaling_adjustment          = local.task_scale_out_min_container
+    }
+    step_adjustment {
+      metric_interval_lower_bound = 3 # しきい値からプラス「3」
       metric_interval_upper_bound = 6
       scaling_adjustment          = 5
     }
@@ -109,11 +114,11 @@ resource "aws_appautoscaling_policy" "service_scaling_policy" {
 resource "aws_cloudwatch_metric_alarm" "service_scaling_alarm" {
   alarm_name          = "${var.env}-${var.pj_prefix}-service-scaling-alarm"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = local.service_scale_ecaluation_periods
+  evaluation_periods  = local.service_scale_evaluation_periods
   metric_name         = "ApproximateNumberOfMessagesVisible"
   namespace           = "AWS/SQS"
   period              = "60"
-  statistic           = "Sum"
+  statistic           = "Average"
   unit                = "Count"
   threshold           = local.service_scaling_threshold
 
