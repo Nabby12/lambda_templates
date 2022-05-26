@@ -37,8 +37,8 @@ Resources:
     Properties:
       DelaySeconds: 0
       MaximumMessageSize: 262144
-      MessageRetentionPeriod: 1209600 # 14 days
-      ReceiveMessageWaitTimeSeconds: 20
+      MessageRetentionPeriod: 1209600   # 14 days
+      ReceiveMessageWaitTimeSeconds: 20 # ロングポーリングに設定
       VisibilityTimeout: 300
       QueueName: !Sub ${Env}-${PJPrefix}-dlq
 
@@ -47,8 +47,8 @@ Resources:
     Properties:
       DelaySeconds: 0
       MaximumMessageSize: 262144
-      MessageRetentionPeriod: 1209600 # 14 days
-      ReceiveMessageWaitTimeSeconds: 20
+      MessageRetentionPeriod: 1209600   # 14 days
+      ReceiveMessageWaitTimeSeconds: 20 # ロングポーリングに設定
       VisibilityTimeout: 300
       QueueName: !Sub ${Env}-${PJPrefix}-trigger-queue
       RedrivePolicy:
