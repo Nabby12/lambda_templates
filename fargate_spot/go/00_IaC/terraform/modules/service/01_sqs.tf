@@ -6,7 +6,7 @@ resource "aws_sqs_queue" "dead_letter_queue" {
   delay_seconds              = 0
   max_message_size           = 262144
   message_retention_seconds  = 1209600 # 14 days
-  receive_wait_time_seconds  = 20
+  receive_wait_time_seconds  = 20      # ロングポーリングに設定
   visibility_timeout_seconds = 300
 }
 
@@ -15,7 +15,7 @@ resource "aws_sqs_queue" "trigger_queue" {
   delay_seconds              = 0
   max_message_size           = 262144
   message_retention_seconds  = 1209600 # 14 days
-  receive_wait_time_seconds  = 20
+  receive_wait_time_seconds  = 20      # ロングポーリングに設定
   visibility_timeout_seconds = 300
   redrive_policy = jsonencode({
     deadLetterTargetArn = "${aws_sqs_queue.dead_letter_queue.arn}"
