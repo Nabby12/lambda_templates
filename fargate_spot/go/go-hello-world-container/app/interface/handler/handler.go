@@ -46,6 +46,11 @@ func Handler(ctx context.Context) {
 			if err != nil {
 				fmt.Printf("execute failed: %v\n", err)
 
+				// カスタムエラーごとの処理
+				if domain.IsSome(err) {
+					fmt.Println("some thing wrong.")
+				}
+
 				// 必ず失敗する致命的なエラーの場合は、メッセージ削除
 				if domain.IsFatal(err) {
 					fmt.Println("fatal error")
