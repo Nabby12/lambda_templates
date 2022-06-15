@@ -11,7 +11,16 @@ func Sample(second int) error {
 	time.Sleep(time.Duration(second) * time.Second)
 
 	// 必ず失敗する致命的なエラー（キューを削除する）
-	// err := &domain.FatalErr{Message: "fatal error."}
+	// err := &domain.FatalError{
+	// 	Message: "fatal error."
+	// }
+
+	// return err
+
+	// その他のカスタムエラー
+	// err := &domain.SomeError{
+	// 	Message: "some error.",
+	// }
 	// fmt.Printf("%+v\n", err)
 
 	// return err
