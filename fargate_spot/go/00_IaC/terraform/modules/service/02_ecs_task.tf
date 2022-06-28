@@ -64,7 +64,8 @@ resource "aws_ecs_task_definition" "task_definition" {
           awslogs-stream-prefix : "ecs",
         }
         essential = true,
-      }
+      },
+      stopTimeout : 120,
     }
   ])
 }
