@@ -10,5 +10,7 @@ event*.json
 !sample.env
 *.toml
 !Cargo.toml
+!Project.toml
+!Manifest.toml
 swagger*.yaml
 trash/
